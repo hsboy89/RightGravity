@@ -1006,9 +1006,12 @@ class GameScene extends Phaser.Scene {
     showGameOver() {
         // 최고 생존 시간 저장 및 업데이트
         let bestTime = parseFloat(localStorage.getItem('bestTime') || 0);
-        if (this.survivalTime > bestTime) {
+        const isNewRecord = this.survivalTime > bestTime;
+        
+        if (isNewRecord) {
             bestTime = this.survivalTime;
             localStorage.setItem('bestTime', bestTime.toString());
+            console.log('새로운 최고 기록:', bestTime);
         }
 
         // 곰플레이어 스타일 - 깔끔한 게임 오버 화면
@@ -1021,14 +1024,23 @@ class GameScene extends Phaser.Scene {
 
         const timeText = this.add.text(400, 320, `${this.survivalTime.toFixed(1)}s`, {
             fontSize: '42px',
-            fill: '#00ff88',
+            fill: isNewRecord ? '#00ff88' : '#ffffff', // 새 기록이면 초록색
             fontFamily: 'Arial',
             fontWeight: 'bold'
         }).setOrigin(0.5);
         
-        // 최고 생존 시간 표시
-        const currentBestTime = parseFloat(localStorage.getItem('bestTime') || 0);
-        const bestTimeText = this.add.text(400, 380, `BEST: ${currentBestTime.toFixed(1)}s`, {
+        // 새 기록 표시
+        if (isNewRecord) {
+            this.add.text(400, 360, 'NEW RECORD!', {
+                fontSize: '32px',
+                fill: '#00ff88',
+                fontFamily: 'Arial',
+                fontWeight: 'bold'
+            }).setOrigin(0.5);
+        }
+        
+        // 최고 생존 시간 표시 (저장된 최신 값 사용)
+        const bestTimeText = this.add.text(400, 400, `BEST: ${bestTime.toFixed(1)}s`, {
             fontSize: '28px',
             fill: '#ffffff',
             fontFamily: 'Arial'
@@ -1041,11 +1053,11 @@ class GameScene extends Phaser.Scene {
         }).setOrigin(0.5);
 
         this.input.once('pointerdown', () => {
-            this.scene.restart();
+            this.scene.start('MainMenu'); // 메인 메뉴로 돌아가서 best time 업데이트
         });
         
         this.input.keyboard.once('keydown-SPACE', () => {
-            this.scene.restart();
+            this.scene.start('MainMenu'); // 메인 메뉴로 돌아가서 best time 업데이트
         });
     }
 }
