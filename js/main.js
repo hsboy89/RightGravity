@@ -137,7 +137,7 @@ class GameScene extends Phaser.Scene {
 
         // 적 스폰 타이머
         this.enemySpawnTimer = 0;
-        this.enemySpawnInterval = 400; // 0.4초마다 적 생성 (피하기 게임용 - 더 많이)
+        this.enemySpawnInterval = 200; // 0.2초마다 적 생성 (더 어렵게 - 더 많이)
 
         // 폭탄 사용 가능 여부
         this.bombCooldown = 0;
@@ -525,8 +525,17 @@ class GameScene extends Phaser.Scene {
         // 보스전 중에도 일반 적 스폰 계속 (게임이 멈추지 않도록)
         // if (this.bossActive || this.midBossActive) return; // 보스전 중에는 일반 적 스폰 중지
         
+        // 시간이 지날수록 더 빠르게 스폰 (난이도 증가)
+        let spawnInterval = this.enemySpawnInterval;
+        if (this.stageTime > 10000) { // 10초 후
+            spawnInterval = this.enemySpawnInterval * 0.7; // 30% 더 빠르게
+        }
+        if (this.stageTime > 30000) { // 30초 후
+            spawnInterval = this.enemySpawnInterval * 0.5; // 50% 더 빠르게
+        }
+        
         if (time > this.enemySpawnTimer) {
-            this.enemySpawnTimer = time + this.enemySpawnInterval;
+            this.enemySpawnTimer = time + spawnInterval;
             this.spawnEnemy();
         }
     }
@@ -602,9 +611,9 @@ class GameScene extends Phaser.Scene {
             return;
         }
         
-        // 아래로 내려오는 속도 (양수 = 아래로)
-        const speedY = Phaser.Math.Between(150, 250); // 더 빠르게
-        const speedX = Phaser.Math.Between(-100, 100);
+        // 아래로 내려오는 속도 (양수 = 아래로) - 더 빠르게
+        const speedY = Phaser.Math.Between(200, 350); // 더 빠르게
+        const speedX = Phaser.Math.Between(-150, 150); // 더 넓은 범위로 이동
         
         // 속도 설정
         enemy.body.setVelocityY(speedY);
@@ -1108,10 +1117,11 @@ class GameScene extends Phaser.Scene {
     }
 
     showGameOver() {
-        // 최고 생존 시간 저장
-        const bestTime = parseFloat(localStorage.getItem('bestTime') || 0);
+        // 최고 생존 시간 저장 및 업데이트
+        let bestTime = parseFloat(localStorage.getItem('bestTime') || 0);
         if (this.survivalTime > bestTime) {
-            localStorage.setItem('bestTime', this.survivalTime);
+            bestTime = this.survivalTime;
+            localStorage.setItem('bestTime', bestTime.toString());
         }
 
         // 게임 오버 텍스트
@@ -1127,7 +1137,9 @@ class GameScene extends Phaser.Scene {
             fontFamily: 'Courier New'
         }).setOrigin(0.5);
         
-        const bestTimeText = this.add.text(400, 360, `BEST TIME: ${bestTime.toFixed(1)}s`, {
+        // 최고 생존 시간 표시 (업데이트된 값)
+        const currentBestTime = parseFloat(localStorage.getItem('bestTime') || 0);
+        const bestTimeText = this.add.text(400, 360, `BEST TIME: ${currentBestTime.toFixed(1)}s`, {
             fontSize: '24px',
             fill: '#ffff00',
             fontFamily: 'Courier New'
