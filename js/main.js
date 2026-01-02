@@ -7,33 +7,37 @@ class MainMenu extends Phaser.Scene {
     }
 
     create() {
-        // 타이틀
-        this.add.text(400, 200, 'RightGravity', {
-            fontSize: '48px',
-            fill: '#ffff00',
-            fontFamily: 'Courier New'
+        // 배경 (깔끔한 단색)
+        this.add.rectangle(400, 300, 800, 600, 0x1a1a2e);
+        
+        // 타이틀 (곰플레이어 스타일 - 깔끔하고 미니멀)
+        this.add.text(400, 200, 'DODGE', {
+            fontSize: '64px',
+            fill: '#ffffff',
+            fontFamily: 'Arial',
+            fontWeight: 'bold'
         }).setOrigin(0.5);
 
         // 최고 생존 시간 표시
         const bestTime = parseFloat(localStorage.getItem('bestTime') || 0);
-        this.add.text(400, 280, `BEST TIME: ${bestTime.toFixed(1)}s`, {
-            fontSize: '24px',
-            fill: '#ffffff',
-            fontFamily: 'Courier New'
+        this.add.text(400, 280, `BEST: ${bestTime.toFixed(1)}s`, {
+            fontSize: '28px',
+            fill: '#00ff88',
+            fontFamily: 'Arial'
         }).setOrigin(0.5);
 
         // 시작 안내
-        this.add.text(400, 400, 'PRESS Z TO START', {
-            fontSize: '32px',
-            fill: '#00ff00',
-            fontFamily: 'Courier New'
+        this.add.text(400, 380, 'CLICK TO START', {
+            fontSize: '24px',
+            fill: '#ffffff',
+            fontFamily: 'Arial'
         }).setOrigin(0.5);
 
-        // 조작법
-        this.add.text(400, 480, 'ARROWS: MOVE  X: BOMB  SHIFT: SLOW', {
-            fontSize: '16px',
-            fill: '#cccccc',
-            fontFamily: 'Courier New'
+        // 조작법 (간단하게)
+        this.add.text(400, 450, 'ARROWS: MOVE', {
+            fontSize: '18px',
+            fill: '#aaaaaa',
+            fontFamily: 'Arial'
         }).setOrigin(0.5);
 
         // 키 입력 설정 (여러 방법 시도)
@@ -137,7 +141,7 @@ class GameScene extends Phaser.Scene {
 
         // 적 스폰 타이머
         this.enemySpawnTimer = 0;
-        this.enemySpawnInterval = 120; // 0.12초마다 적 생성 (더 어렵게 - 더 많이)
+        this.enemySpawnInterval = 50; // 0.05초마다 적 생성 (매우 많이 스폰)
 
         // 폭탄 사용 가능 여부
         this.bombCooldown = 0;
@@ -147,76 +151,44 @@ class GameScene extends Phaser.Scene {
     }
 
     createBackground() {
-        // 배경 레이어들 (패럴랙스 효과) - 종스크롤 슈팅 게임 스타일
+        // 곰플레이어 스타일 - 깔끔한 단색 배경
         this.bgLayers = [];
         
-        // 여러 레이어 생성 (더 명확한 색상과 패턴)
-        for (let i = 0; i < 3; i++) {
-            const baseColor = 0x001122 + i * 0x001122;
-            // 배경을 여러 개 생성하여 무한 스크롤 효과
-            const rect1 = this.add.rectangle(400, 300, 800, 600, baseColor);
-            const rect2 = this.add.rectangle(400, -300, 800, 600, baseColor);
-            rect1.setDepth(0); // 배경은 가장 뒤
-            rect2.setDepth(0);
-            
-            // 배경에 별 패턴 추가 (시각적 효과로 스크롤 확인 가능)
-            const graphics = this.add.graphics();
-            graphics.fillStyle(0xffffff, 0.5 - i * 0.1);
-            for (let j = 0; j < 30; j++) {
-                const starX = Phaser.Math.Between(0, 800);
-                const starY = Phaser.Math.Between(0, 1800); // 더 긴 범위
-                graphics.fillCircle(starX, starY, 1 + i);
-            }
-            graphics.setDepth(1); // 별은 배경 위
-            
-            this.bgLayers.push({ 
-                rect1: rect1, 
-                rect2: rect2,
-                graphics: graphics,
-                speed: (i + 1) * 3  // 스크롤 속도 증가 (더 빠르게)
-            });
+        // 단순한 그라데이션 배경
+        const bg = this.add.rectangle(400, 300, 800, 600, 0x0f0f23);
+        bg.setDepth(0);
+        
+        // 별 패턴 (미니멀하게)
+        const graphics = this.add.graphics();
+        graphics.fillStyle(0xffffff, 0.3);
+        for (let j = 0; j < 50; j++) {
+            const starX = Phaser.Math.Between(0, 800);
+            const starY = Phaser.Math.Between(0, 600);
+            graphics.fillCircle(starX, starY, 1);
         }
+        graphics.setDepth(1);
+        
+        this.bgLayers.push({ 
+            graphics: graphics,
+            speed: 2
+        });
     }
 
     createPlayer() {
-        // 플레이어 비행기 생성 (더 크고 밝게)
-        const graphics = this.add.graphics();
-        
-        // 밝은 초록색으로 변경
-        graphics.fillStyle(0x00ff00, 1);
-        graphics.lineStyle(4, 0xffffff, 1); // 흰색 두꺼운 테두리
-        
-        // 비행기 모양 그리기 (위를 향한 삼각형, 더 크게)
-        graphics.beginPath();
-        graphics.moveTo(0, -25);  // 위쪽 꼭짓점
-        graphics.lineTo(-18, 18);  // 왼쪽 아래
-        graphics.lineTo(-6, 12);   // 왼쪽 날개 안쪽
-        graphics.lineTo(6, 12);    // 오른쪽 날개 안쪽
-        graphics.lineTo(18, 18);   // 오른쪽 아래
-        graphics.closePath();
-        graphics.fillPath();
-        graphics.strokePath();
-        
-        // 몸체 (밝게)
-        graphics.fillStyle(0xffffff, 1);
-        graphics.fillRect(-4, -6, 8, 18);
-        
-        // 발광 효과
-        graphics.lineStyle(2, 0x00ff00, 0.8);
-        graphics.strokePath();
-        
-        this.player = graphics;
+        // 곰플레이어 스타일 - 단순한 원형 플레이어
+        this.player = this.add.circle(400, 500, 12, 0x00ff88);
         this.physics.add.existing(this.player);
         this.player.body.setCollideWorldBounds(true);
-        this.player.body.setSize(36, 43);
-        this.player.setPosition(400, 500);
+        this.player.body.setSize(24, 24);
         this.player.setDepth(10);
-        this.player.setScale(1.2); // 더 크게
-
-        // 플레이어 중심점 표시 (피격 판정 - 작은 점, 디버그용)
-        this.hitbox = this.add.circle(this.player.x, this.player.y, 5, 0xff0000);
+        
+        // 플레이어 시작 위치를 화면 중앙으로
+        this.player.setPosition(400, 300);
+        
+        // 플레이어 중심점 (피격 판정)
+        this.hitbox = this.add.circle(this.player.x, this.player.y, 8, 0x00ff88);
         this.hitbox.setDepth(11);
-        this.hitbox.setAlpha(0.4); // 약간 더 보이게
+        this.hitbox.setAlpha(0.5);
     }
 
     setupInput() {
@@ -283,59 +255,20 @@ class GameScene extends Phaser.Scene {
     }
 
     createUI() {
-        // 생존 시간 표시
-        this.timeText = this.add.text(10, 10, 'TIME: 0.0s', {
-            fontSize: '20px',
+        // 곰플레이어 스타일 - 시간만 크게 표시 (깔끔하게)
+        this.timeText = this.add.text(400, 50, 'Time: 0.0', {
+            fontSize: '48px',
             fill: '#ffffff',
-            fontFamily: 'Courier New'
-        });
-
-        // 잔기 텍스트
-        this.livesText = this.add.text(10, 60, 'LIVES: 3', {
-            fontSize: '20px',
-            fill: '#00ff00',
-            fontFamily: 'Courier New'
-        });
-
-        // 잔기 게이지 바
-        this.livesBarBg = this.add.graphics();
-        this.livesBarBg.fillStyle(0x333333, 1);
-        this.livesBarBg.fillRect(10, 90, 200, 20);
-        
-        this.livesBar = this.add.graphics();
-        this.updateLivesBar();
-
-        // 폭탄
-        this.bombsText = this.add.text(10, 120, 'BOMBS: 3', {
-            fontSize: '20px',
-            fill: '#ff00ff',
-            fontFamily: 'Courier New'
-        });
-
-        // 파워 레벨
-        this.powerText = this.add.text(10, 150, 'POWER: 0', {
-            fontSize: '20px',
-            fill: '#ffff00',
-            fontFamily: 'Courier New'
-        });
+            fontFamily: 'Arial',
+            fontWeight: 'bold'
+        }).setOrigin(0.5);
     }
 
     updateLivesBar() {
-        this.livesBar.clear();
-        const maxLives = 3;
-        const livesPercent = Math.max(0, this.lives / maxLives);
-        
-        // 배경 (회색)
-        this.livesBar.fillStyle(0x666666, 1);
-        this.livesBar.fillRect(10, 90, 200, 20);
-        
-        // 잔기 (초록색)
-        this.livesBar.fillStyle(0x00ff00, 1);
-        this.livesBar.fillRect(10, 90, 200 * livesPercent, 20);
-        
-        // 테두리
-        this.livesBar.lineStyle(2, 0xffffff, 1);
-        this.livesBar.strokeRect(10, 90, 200, 20);
+        // 잔기 텍스트만 업데이트
+        if (this.livesText) {
+            this.livesText.setText(`LIVES: ${this.lives}`);
+        }
     }
 
     update(time, delta) {
@@ -346,7 +279,7 @@ class GameScene extends Phaser.Scene {
         // 생존 시간 업데이트 (초 단위)
         if (!this.gameOver) {
             this.survivalTime = Math.floor(this.stageTime / 1000 * 10) / 10; // 소수점 1자리
-            this.timeText.setText(`TIME: ${this.survivalTime.toFixed(1)}s`);
+            this.timeText.setText(`Time: ${this.survivalTime.toFixed(1)}`);
         }
 
         // 배경 스크롤
@@ -377,11 +310,7 @@ class GameScene extends Phaser.Scene {
         // 적 비행기와 플레이어 수동 충돌 판정만 유지
         this.checkEnemyPlayerCollisions();
 
-        // 보스 체력 바 업데이트
-        this.updateBossHealthBars();
-
-        // 아이템이 화면 밖으로 나가면 제거
-        this.cleanupItems();
+        // 보스 및 아이템 관련 기능 제거 (피하기 게임)
 
         // 히트박스 업데이트 (플레이어 중심점)
         if (this.hitbox) {
@@ -405,28 +334,8 @@ class GameScene extends Phaser.Scene {
     }
 
     updateBackground(delta) {
-        // 배경 레이어 스크롤 (종스크롤 효과 - 위에서 아래로)
-        this.bgLayers.forEach(layer => {
-            const speed = layer.speed * (delta / 16);
-            
-            // 모든 배경 레이어를 아래로 이동
-            layer.rect1.y += speed;
-            layer.rect2.y += speed;
-            if (layer.graphics) {
-                layer.graphics.y += speed;
-            }
-            
-            // 배경이 화면 밖으로 나가면 위로 재배치 (무한 스크롤)
-            if (layer.rect1.y >= 900) {
-                layer.rect1.y = layer.rect2.y - 600;
-            }
-            if (layer.rect2.y >= 900) {
-                layer.rect2.y = layer.rect1.y - 600;
-            }
-            if (layer.graphics && layer.graphics.y >= 900) {
-                layer.graphics.y = -300;
-            }
-        });
+        // 곰플레이어 스타일 - 배경은 정적이거나 매우 느리게 스크롤
+        // 별 패턴은 거의 움직이지 않음
     }
 
     updatePlayerMovement(delta) {
@@ -527,17 +436,17 @@ class GameScene extends Phaser.Scene {
         
         // 시간이 지날수록 더 빠르게 스폰 (난이도 증가)
         let spawnInterval = this.enemySpawnInterval;
+        if (this.stageTime > 3000) { // 3초 후
+            spawnInterval = this.enemySpawnInterval * 0.7; // 30% 더 빠르게
+        }
         if (this.stageTime > 5000) { // 5초 후
-            spawnInterval = this.enemySpawnInterval * 0.8; // 20% 더 빠르게
+            spawnInterval = this.enemySpawnInterval * 0.5; // 50% 더 빠르게
         }
         if (this.stageTime > 10000) { // 10초 후
-            spawnInterval = this.enemySpawnInterval * 0.6; // 40% 더 빠르게
-        }
-        if (this.stageTime > 20000) { // 20초 후
-            spawnInterval = this.enemySpawnInterval * 0.4; // 60% 더 빠르게
-        }
-        if (this.stageTime > 30000) { // 30초 후
             spawnInterval = this.enemySpawnInterval * 0.3; // 70% 더 빠르게
+        }
+        if (this.stageTime > 15000) { // 15초 후
+            spawnInterval = this.enemySpawnInterval * 0.2; // 80% 더 빠르게
         }
         
         if (time > this.enemySpawnTimer) {
@@ -563,100 +472,76 @@ class GameScene extends Phaser.Scene {
     }
 
     spawnEnemy() {
-        const x = Phaser.Math.Between(50, 750);
-        const enemyType = Phaser.Math.Between(1, 4); // 다양한 적 타입 (빠른 적 추가)
+        // 사방에서 랜덤하게 적 스폰
+        // 0: 위, 1: 아래, 2: 왼쪽, 3: 오른쪽
+        const side = Phaser.Math.Between(0, 3);
+        let x, y, speedX, speedY;
         
-        // 적 비행기 생성 (아래를 향한 삼각형)
-        const graphics = this.add.graphics();
+        // 일정한 크기와 속도
+        const radius = 10; // 모든 적이 같은 크기
+        const color = 0xffff00; // 노란색
+        const speed = 300; // 일정한 속도
         
-        // 적 타입에 따라 색상, 크기, 속도 변경
-        let color, darkColor, size, speedMultiplier;
-        if (enemyType === 1) {
-            color = 0xff5555;      // 매우 밝은 빨간 적
-            darkColor = 0xff0000;
-            size = 1.3;
-            speedMultiplier = 1.3; // 기본 속도 증가
-        } else if (enemyType === 2) {
-            color = 0xffaa55;      // 매우 밝은 주황 적
-            darkColor = 0xff6600;
-            size = 1.5;
-            speedMultiplier = 1.6; // 60% 더 빠름
-        } else if (enemyType === 3) {
-            color = 0xff55ff;      // 매우 밝은 보라 적
-            darkColor = 0xff00ff;
-            size = 1.1;
-            speedMultiplier = 2.0; // 2배 빠름
+        // 스폰 위치와 방향 설정
+        if (side === 0) {
+            // 위에서
+            x = Phaser.Math.Between(50, 750);
+            y = -30;
+            // 플레이어를 향해 이동
+            const angle = Phaser.Math.Angle.Between(x, y, this.player.x, this.player.y);
+            speedX = Math.cos(angle) * speed;
+            speedY = Math.sin(angle) * speed;
+        } else if (side === 1) {
+            // 아래에서
+            x = Phaser.Math.Between(50, 750);
+            y = 630;
+            const angle = Phaser.Math.Angle.Between(x, y, this.player.x, this.player.y);
+            speedX = Math.cos(angle) * speed;
+            speedY = Math.sin(angle) * speed;
+        } else if (side === 2) {
+            // 왼쪽에서
+            x = -30;
+            y = Phaser.Math.Between(50, 550);
+            const angle = Phaser.Math.Angle.Between(x, y, this.player.x, this.player.y);
+            speedX = Math.cos(angle) * speed;
+            speedY = Math.sin(angle) * speed;
         } else {
-            // 타입 4: 매우 빠른 적
-            color = 0x00ffff;      // 청록색 (빠른 적 표시)
-            darkColor = 0x00cccc;
-            size = 0.9; // 작지만 빠름
-            speedMultiplier = 2.8; // 2.8배 빠름
+            // 오른쪽에서
+            x = 830;
+            y = Phaser.Math.Between(50, 550);
+            const angle = Phaser.Math.Angle.Between(x, y, this.player.x, this.player.y);
+            speedX = Math.cos(angle) * speed;
+            speedY = Math.sin(angle) * speed;
         }
         
-        // 매우 밝고 명확한 색상으로 변경
-        graphics.fillStyle(color, 1);
-        graphics.lineStyle(4, 0xffffff, 1); // 두꺼운 흰색 테두리
-        
-        // 적 비행기 모양 그리기 (더 크게)
-        graphics.beginPath();
-        graphics.moveTo(0, 25 * size);   // 아래쪽 꼭짓점
-        graphics.lineTo(-15 * size, -12 * size); // 왼쪽 위
-        graphics.lineTo(-5 * size, -6 * size);   // 왼쪽 날개 안쪽
-        graphics.lineTo(5 * size, -6 * size);    // 오른쪽 날개 안쪽
-        graphics.lineTo(15 * size, -12 * size);  // 오른쪽 위
-        graphics.closePath();
-        graphics.fillPath();
-        graphics.strokePath();
-        
-        // 몸체 (밝은 흰색)
-        graphics.fillStyle(0xffffff, 1);
-        graphics.fillRect(-3 * size, -10 * size, 6 * size, 15 * size);
-        
-        // 발광 효과 (더 잘 보이도록)
-        graphics.lineStyle(2, color, 0.8);
-        graphics.strokePath();
-        
-        const enemy = graphics;
+        // 원형 적 생성
+        const enemy = this.add.circle(x, y, radius, color);
         this.physics.add.existing(enemy);
         
         // 물리 엔진 활성화 확인
         if (!enemy.body) {
-            console.error('적 비행기 물리 엔진 오류');
+            console.error('적 물리 엔진 오류');
             return;
         }
         
-        // 아래로 내려오는 속도 (양수 = 아래로) - 타입에 따라 속도 다름
-        const baseSpeedY = Phaser.Math.Between(350, 550); // 기본 속도 대폭 증가
-        const baseSpeedX = Phaser.Math.Between(-250, 250); // 더 넓은 범위로 이동
-        
-        const speedY = baseSpeedY * speedMultiplier; // 타입에 따른 속도 배율 적용
-        const speedX = baseSpeedX * speedMultiplier;
-        
         // 속도 설정
-        enemy.body.setVelocityY(speedY);
         enemy.body.setVelocityX(speedX);
-        enemy.body.setSize(30 * size, 37 * size);
-        enemy.body.setCollideWorldBounds(false); // 화면 밖으로 나가도 계속 이동
+        enemy.body.setVelocityY(speedY);
+        enemy.body.setSize(radius * 2, radius * 2);
+        enemy.body.setCollideWorldBounds(false);
         
         // 초기 위치 설정
         enemy.x = x;
-        enemy.y = -30;
-        enemy.setDepth(5); // 배경보다 앞에 표시
-        enemy.setScale(1.2); // 더 크게 표시
-        enemy.health = enemyType; // 타입에 따라 체력 다름
-        enemy.enemyType = enemyType;
+        enemy.y = y;
+        enemy.setDepth(5);
+        enemy.health = 1;
+        enemy.radius = radius;
         
         // 속도를 저장하여 수동 업데이트 가능하도록
-        enemy.speedY = speedY;
         enemy.speedX = speedX;
+        enemy.speedY = speedY;
         
         this.enemies.add(enemy);
-        
-        // 디버깅: 적이 제대로 생성되었는지 확인
-        console.log('적 비행기 생성:', x, '속도:', speedY);
-
-        // 적 미사일 발사 기능 제거 (피하기 게임)
     }
 
     // 적 미사일 발사 기능 제거 (피하기 게임)
@@ -846,8 +731,8 @@ class GameScene extends Phaser.Scene {
             const distance = Math.sqrt(dx * dx + dy * dy);
             
             // 충돌 판정 (적 반지름 + 플레이어 히트박스)
-            const enemyRadius = 20;
-            const playerRadius = 4; // 플레이어 히트박스 크기
+            const enemyRadius = enemy.radius || 12; // 적의 실제 반지름 사용
+            const playerRadius = 8; // 플레이어 히트박스 크기 (원형)
             
             if (distance < enemyRadius + playerRadius) {
                 // 충돌 발생
@@ -1035,31 +920,15 @@ class GameScene extends Phaser.Scene {
     }
 
     hitPlayer(player, object) {
-        // 무적 상태이거나 게임 오버 상태면 처리하지 않음
-        if (this.isInvincible || this.gameOver) return;
+        // 게임 오버 상태면 처리하지 않음
+        if (this.gameOver) return;
         
         // 이미 파괴된 객체는 처리하지 않음
         if (!object || !object.active) return;
 
-        // 잔기 감소
-        this.lives--;
-        this.livesText.setText(`LIVES: ${this.lives}`);
-        this.updateLivesBar(); // 잔기 게이지 업데이트
-
-        // 잔기가 0 이하가 되면 게임 오버
-        if (this.lives < 0) {
-            this.lives = 0; // 음수 방지
-        }
-        
-        if (this.lives <= 0) {
-            this.gameOver = true;
-            this.showGameOver();
-        } else {
-            // 무적 시간 부여 (잔기가 남아있을 때만)
-            this.isInvincible = true;
-            this.invincibleTimer = 2000;
-            this.createExplosion(player.x, player.y);
-        }
+        // 한 번 부딛히면 바로 게임 오버
+        this.gameOver = true;
+        this.showGameOver();
 
         // 충돌한 객체 파괴 (플레이어가 아닌 경우)
         if (object !== this.player && object.active) {
@@ -1142,34 +1011,40 @@ class GameScene extends Phaser.Scene {
             localStorage.setItem('bestTime', bestTime.toString());
         }
 
-        // 게임 오버 텍스트
+        // 곰플레이어 스타일 - 깔끔한 게임 오버 화면
         const gameOverText = this.add.text(400, 250, 'GAME OVER', {
-            fontSize: '48px',
-            fill: '#ff0000',
-            fontFamily: 'Courier New'
+            fontSize: '56px',
+            fill: '#ffffff',
+            fontFamily: 'Arial',
+            fontWeight: 'bold'
         }).setOrigin(0.5);
 
-        const timeText = this.add.text(400, 320, `SURVIVAL TIME: ${this.survivalTime.toFixed(1)}s`, {
-            fontSize: '32px',
-            fill: '#ffffff',
-            fontFamily: 'Courier New'
+        const timeText = this.add.text(400, 320, `${this.survivalTime.toFixed(1)}s`, {
+            fontSize: '42px',
+            fill: '#00ff88',
+            fontFamily: 'Arial',
+            fontWeight: 'bold'
         }).setOrigin(0.5);
         
-        // 최고 생존 시간 표시 (업데이트된 값)
+        // 최고 생존 시간 표시
         const currentBestTime = parseFloat(localStorage.getItem('bestTime') || 0);
-        const bestTimeText = this.add.text(400, 360, `BEST TIME: ${currentBestTime.toFixed(1)}s`, {
-            fontSize: '24px',
-            fill: '#ffff00',
-            fontFamily: 'Courier New'
+        const bestTimeText = this.add.text(400, 380, `BEST: ${currentBestTime.toFixed(1)}s`, {
+            fontSize: '28px',
+            fill: '#ffffff',
+            fontFamily: 'Arial'
         }).setOrigin(0.5);
 
-        const restartText = this.add.text(400, 400, 'PRESS Z TO RESTART', {
-            fontSize: '24px',
-            fill: '#00ff00',
-            fontFamily: 'Courier New'
+        const restartText = this.add.text(400, 450, 'CLICK TO RESTART', {
+            fontSize: '20px',
+            fill: '#aaaaaa',
+            fontFamily: 'Arial'
         }).setOrigin(0.5);
 
-        this.input.keyboard.once('keydown-Z', () => {
+        this.input.once('pointerdown', () => {
+            this.scene.restart();
+        });
+        
+        this.input.keyboard.once('keydown-SPACE', () => {
             this.scene.restart();
         });
     }
@@ -1181,7 +1056,7 @@ const config = {
     width: 800,
     height: 600,
     parent: 'game-container',
-    backgroundColor: '#000011',
+    backgroundColor: '#0f0f23',
     physics: {
         default: 'arcade',
         arcade: {
