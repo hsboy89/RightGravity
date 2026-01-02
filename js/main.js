@@ -14,9 +14,9 @@ class MainMenu extends Phaser.Scene {
             fontFamily: 'Courier New'
         }).setOrigin(0.5);
 
-        // 하이스코어 표시
-        const highScore = localStorage.getItem('highScore') || 0;
-        this.add.text(400, 280, `HIGH SCORE: ${highScore}`, {
+        // 최고 생존 시간 표시
+        const bestTime = parseFloat(localStorage.getItem('bestTime') || 0);
+        this.add.text(400, 280, `BEST TIME: ${bestTime.toFixed(1)}s`, {
             fontSize: '24px',
             fill: '#ffffff',
             fontFamily: 'Courier New'
@@ -77,7 +77,7 @@ class GameScene extends Phaser.Scene {
 
     create() {
         // 게임 변수 초기화
-        this.score = 0;
+        this.survivalTime = 0; // 생존 시간 (초)
         this.lives = 3;
         this.bombs = 3;
         this.powerLevel = 0;
@@ -283,17 +283,10 @@ class GameScene extends Phaser.Scene {
     }
 
     createUI() {
-        // 스코어
-        this.scoreText = this.add.text(10, 10, 'SCORE: 0', {
+        // 생존 시간 표시
+        this.timeText = this.add.text(10, 10, 'TIME: 0.0s', {
             fontSize: '20px',
             fill: '#ffffff',
-            fontFamily: 'Courier New'
-        });
-
-        // 점수 기준 안내 (피하기 게임 - 생존 시간 기반)
-        this.add.text(10, 35, '생존 시간: +점수', {
-            fontSize: '12px',
-            fill: '#cccccc',
             fontFamily: 'Courier New'
         });
 
@@ -349,6 +342,12 @@ class GameScene extends Phaser.Scene {
         if (this.gameOver) return;
 
         this.stageTime += delta;
+        
+        // 생존 시간 업데이트 (초 단위)
+        if (!this.gameOver) {
+            this.survivalTime = Math.floor(this.stageTime / 1000 * 10) / 10; // 소수점 1자리
+            this.timeText.setText(`TIME: ${this.survivalTime.toFixed(1)}s`);
+        }
 
         // 배경 스크롤
         this.updateBackground(delta);
@@ -495,8 +494,6 @@ class GameScene extends Phaser.Scene {
             if (enemy.active) {
                 enemy.health -= 10;
                 if (enemy.health <= 0) {
-                    this.score += 100;
-                    this.scoreText.setText(`SCORE: ${this.score}`);
                     this.createExplosion(enemy.x, enemy.y);
                     enemy.destroy();
                 }
@@ -508,8 +505,6 @@ class GameScene extends Phaser.Scene {
             if (boss.active) {
                 boss.health -= 50;
                 if (boss.health <= 0) {
-                    this.score += 1000;
-                    this.scoreText.setText(`SCORE: ${this.score}`);
                     this.createExplosion(boss.x, boss.y);
                     if (boss.isBoss && boss.phase === 1) {
                         // 2단계로 변신
@@ -848,15 +843,6 @@ class GameScene extends Phaser.Scene {
         enemy.health--;
         
         if (enemy.health <= 0) {
-            // 점수 추가
-            this.score += 100;
-            this.scoreText.setText(`SCORE: ${this.score}`);
-
-            // 아이템 드랍 (확률)
-            if (Phaser.Math.Between(1, 100) <= 30) {
-                this.dropItem(enemy.x, enemy.y);
-            }
-
             // 파티클 효과
             this.createExplosion(enemy.x, enemy.y);
             
@@ -877,8 +863,6 @@ class GameScene extends Phaser.Scene {
                 this.transformBoss(boss);
             } else {
                 // 보스 파괴
-                this.score += 1000;
-                this.scoreText.setText(`SCORE: ${this.score}`);
                 this.createExplosion(boss.x, boss.y);
                 if (boss.healthBar) boss.healthBar.destroy();
                 boss.destroy();
@@ -1124,10 +1108,10 @@ class GameScene extends Phaser.Scene {
     }
 
     showGameOver() {
-        // 하이스코어 저장
-        const highScore = parseInt(localStorage.getItem('highScore') || 0);
-        if (this.score > highScore) {
-            localStorage.setItem('highScore', this.score);
+        // 최고 생존 시간 저장
+        const bestTime = parseFloat(localStorage.getItem('bestTime') || 0);
+        if (this.survivalTime > bestTime) {
+            localStorage.setItem('bestTime', this.survivalTime);
         }
 
         // 게임 오버 텍스트
@@ -1137,9 +1121,15 @@ class GameScene extends Phaser.Scene {
             fontFamily: 'Courier New'
         }).setOrigin(0.5);
 
-        const scoreText = this.add.text(400, 320, `FINAL SCORE: ${this.score}`, {
+        const timeText = this.add.text(400, 320, `SURVIVAL TIME: ${this.survivalTime.toFixed(1)}s`, {
             fontSize: '32px',
             fill: '#ffffff',
+            fontFamily: 'Courier New'
+        }).setOrigin(0.5);
+        
+        const bestTimeText = this.add.text(400, 360, `BEST TIME: ${bestTime.toFixed(1)}s`, {
+            fontSize: '24px',
+            fill: '#ffff00',
             fontFamily: 'Courier New'
         }).setOrigin(0.5);
 
