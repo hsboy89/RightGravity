@@ -137,7 +137,7 @@ class GameScene extends Phaser.Scene {
 
         // 적 스폰 타이머
         this.enemySpawnTimer = 0;
-        this.enemySpawnInterval = 200; // 0.2초마다 적 생성 (더 어렵게 - 더 많이)
+        this.enemySpawnInterval = 150; // 0.15초마다 적 생성 (더 어렵게 - 더 많이)
 
         // 폭탄 사용 가능 여부
         this.bombCooldown = 0;
@@ -527,11 +527,17 @@ class GameScene extends Phaser.Scene {
         
         // 시간이 지날수록 더 빠르게 스폰 (난이도 증가)
         let spawnInterval = this.enemySpawnInterval;
+        if (this.stageTime > 5000) { // 5초 후
+            spawnInterval = this.enemySpawnInterval * 0.8; // 20% 더 빠르게
+        }
         if (this.stageTime > 10000) { // 10초 후
-            spawnInterval = this.enemySpawnInterval * 0.7; // 30% 더 빠르게
+            spawnInterval = this.enemySpawnInterval * 0.6; // 40% 더 빠르게
+        }
+        if (this.stageTime > 20000) { // 20초 후
+            spawnInterval = this.enemySpawnInterval * 0.4; // 60% 더 빠르게
         }
         if (this.stageTime > 30000) { // 30초 후
-            spawnInterval = this.enemySpawnInterval * 0.5; // 50% 더 빠르게
+            spawnInterval = this.enemySpawnInterval * 0.3; // 70% 더 빠르게
         }
         
         if (time > this.enemySpawnTimer) {
@@ -558,25 +564,34 @@ class GameScene extends Phaser.Scene {
 
     spawnEnemy() {
         const x = Phaser.Math.Between(50, 750);
-        const enemyType = Phaser.Math.Between(1, 3); // 다양한 적 타입
+        const enemyType = Phaser.Math.Between(1, 4); // 다양한 적 타입 (빠른 적 추가)
         
         // 적 비행기 생성 (아래를 향한 삼각형)
         const graphics = this.add.graphics();
         
-        // 적 타입에 따라 색상과 크기 변경 (더 밝고 크게)
-        let color, darkColor, size;
+        // 적 타입에 따라 색상, 크기, 속도 변경
+        let color, darkColor, size, speedMultiplier;
         if (enemyType === 1) {
             color = 0xff5555;      // 매우 밝은 빨간 적
             darkColor = 0xff0000;
-            size = 1.3; // 더 크게
+            size = 1.3;
+            speedMultiplier = 1.0; // 일반 속도
         } else if (enemyType === 2) {
             color = 0xffaa55;      // 매우 밝은 주황 적
             darkColor = 0xff6600;
-            size = 1.5; // 더 크게
-        } else {
+            size = 1.5;
+            speedMultiplier = 1.2; // 20% 더 빠름
+        } else if (enemyType === 3) {
             color = 0xff55ff;      // 매우 밝은 보라 적
             darkColor = 0xff00ff;
-            size = 1.1; // 더 크게
+            size = 1.1;
+            speedMultiplier = 1.5; // 50% 더 빠름
+        } else {
+            // 타입 4: 매우 빠른 적
+            color = 0x00ffff;      // 청록색 (빠른 적 표시)
+            darkColor = 0x00cccc;
+            size = 0.9; // 작지만 빠름
+            speedMultiplier = 2.0; // 2배 빠름
         }
         
         // 매우 밝고 명확한 색상으로 변경
@@ -611,9 +626,12 @@ class GameScene extends Phaser.Scene {
             return;
         }
         
-        // 아래로 내려오는 속도 (양수 = 아래로) - 더 빠르게
-        const speedY = Phaser.Math.Between(200, 350); // 더 빠르게
-        const speedX = Phaser.Math.Between(-150, 150); // 더 넓은 범위로 이동
+        // 아래로 내려오는 속도 (양수 = 아래로) - 타입에 따라 속도 다름
+        const baseSpeedY = Phaser.Math.Between(250, 400); // 기본 속도 증가
+        const baseSpeedX = Phaser.Math.Between(-200, 200); // 더 넓은 범위로 이동
+        
+        const speedY = baseSpeedY * speedMultiplier; // 타입에 따른 속도 배율 적용
+        const speedX = baseSpeedX * speedMultiplier;
         
         // 속도 설정
         enemy.body.setVelocityY(speedY);
