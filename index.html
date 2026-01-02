@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RightGravity</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #000;
+            font-family: 'Courier New', monospace;
+        }
+        #game-container {
+            position: relative;
+            border: 2px solid #fff;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container" tabindex="0"></div>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
+    <script>
+        // Phaser 로드 확인
+        window.addEventListener('load', () => {
+            if (typeof Phaser === 'undefined') {
+                console.error('❌ Phaser.js가 로드되지 않았습니다!');
+                alert('Phaser.js 로드 실패. 인터넷 연결을 확인하세요.');
+            } else {
+                console.log('✅ Phaser.js 로드 성공:', Phaser.VERSION);
+            }
+            
+            // 게임 컨테이너에 포커스
+            const container = document.getElementById('game-container');
+            if (container) {
+                container.focus();
+            }
+        });
+    </script>
+    <script src="js/main.js"></script>
+    <script>
+        // 게임 초기화 확인
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                if (typeof game === 'undefined') {
+                    console.error('❌ 게임이 초기화되지 않았습니다!');
+                    alert('게임 초기화 실패. 브라우저 콘솔(F12)을 확인하세요.');
+                } else {
+                    console.log('✅ 게임 초기화 성공');
+                }
+            }, 100);
+        });
+    </script>
+</body>
+</html>

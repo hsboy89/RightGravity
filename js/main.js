@@ -1,0 +1,1175 @@
+// 게임 설정은 클래스 정의 후에 실행
+
+// 메인 메뉴 씬
+class MainMenu extends Phaser.Scene {
+    constructor() {
+        super({ key: 'MainMenu' });
+    }
+
+    create() {
+        // 타이틀
+        this.add.text(400, 200, 'RightGravity', {
+            fontSize: '48px',
+            fill: '#ffff00',
+            fontFamily: 'Courier New'
+        }).setOrigin(0.5);
+
+        // 하이스코어 표시
+        const highScore = localStorage.getItem('highScore') || 0;
+        this.add.text(400, 280, `HIGH SCORE: ${highScore}`, {
+            fontSize: '24px',
+            fill: '#ffffff',
+            fontFamily: 'Courier New'
+        }).setOrigin(0.5);
+
+        // 시작 안내
+        this.add.text(400, 400, 'PRESS Z TO START', {
+            fontSize: '32px',
+            fill: '#00ff00',
+            fontFamily: 'Courier New'
+        }).setOrigin(0.5);
+
+        // 조작법
+        this.add.text(400, 480, 'ARROWS: MOVE  X: BOMB  SHIFT: SLOW', {
+            fontSize: '16px',
+            fill: '#cccccc',
+            fontFamily: 'Courier New'
+        }).setOrigin(0.5);
+
+        // 키 입력 설정 (여러 방법 시도)
+        this.keyZ = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
+        
+        // 키보드 포커스 활성화
+        this.input.keyboard.enabled = true;
+        
+        // 모든 키 입력 감지 (디버깅용)
+        this.input.keyboard.on('keydown', (event) => {
+            console.log('키 입력:', event.key, event.keyCode);
+            if (event.key === 'z' || event.key === 'Z' || event.keyCode === 90) {
+                console.log('Z 키 감지! 게임 시작');
+                this.scene.start('GameScene');
+            }
+        });
+        
+        // 클릭으로도 시작 가능
+        this.input.on('pointerdown', () => {
+            console.log('화면 클릭 감지! 게임 시작');
+            this.scene.start('GameScene');
+        });
+        
+        console.log('메인 메뉴 로드 완료. Z 키를 누르거나 화면을 클릭하세요.');
+    }
+    
+    update() {
+        // Z 키 입력 확인 (추가 방법)
+        if (this.keyZ && this.keyZ.isDown) {
+            console.log('Z 키 isDown 감지! 게임 시작');
+            this.scene.start('GameScene');
+        }
+    }
+}
+
+// 메인 게임 씬
+class GameScene extends Phaser.Scene {
+    constructor() {
+        super({ key: 'GameScene' });
+    }
+
+    create() {
+        // 게임 변수 초기화
+        this.score = 0;
+        this.lives = 3;
+        this.bombs = 3;
+        this.powerLevel = 0;
+        this.isSlowMode = false;
+        this.isInvincible = false;
+        this.gameOver = false;
+        this.stageTime = 0;
+        this.bossActive = false;
+        this.midBossActive = false;
+
+        // 배경 생성
+        this.createBackground();
+
+        // 플레이어 생성
+        this.createPlayer();
+
+        // 옵션 유닛 생성
+        this.options = [];
+
+        // 탄환 그룹
+        this.playerBullets = this.physics.add.group({
+            defaultKey: null,
+            maxSize: 100
+        });
+        this.enemyBullets = this.physics.add.group({
+            defaultKey: null,
+            maxSize: 200
+        });
+        this.enemies = this.physics.add.group();
+        this.items = this.physics.add.group();
+        this.bosses = this.physics.add.group();
+
+        // 탄환이 화면 밖으로 나가면 제거
+        this.physics.world.on('worldbounds', (event) => {
+            if (event.body.gameObject === this.player) {
+                event.body.gameObject.setActive(false);
+            } else if (this.playerBullets.contains(event.body.gameObject) || 
+                       this.enemyBullets.contains(event.body.gameObject)) {
+                event.body.gameObject.destroy();
+            }
+            // 적은 화면 밖으로 나가면 제거
+            else if (this.enemies.contains(event.body.gameObject)) {
+                if (event.body.gameObject.y > 650) { // 화면 아래로 나가면
+                    event.body.gameObject.destroy();
+                }
+            }
+        });
+
+        // 충돌 설정
+        this.setupCollisions();
+
+        // UI 생성
+        this.createUI();
+
+        // 키 입력 설정
+        this.setupInput();
+
+        // 적 스폰 타이머
+        this.enemySpawnTimer = 0;
+        this.enemySpawnInterval = 400; // 0.4초마다 적 생성 (피하기 게임용 - 더 많이)
+
+        // 폭탄 사용 가능 여부
+        this.bombCooldown = 0;
+
+        // 플레이어 경계 처리
+        this.player.body.setCollideWorldBounds(true);
+    }
+
+    createBackground() {
+        // 배경 레이어들 (패럴랙스 효과) - 종스크롤 슈팅 게임 스타일
+        this.bgLayers = [];
+        
+        // 여러 레이어 생성 (더 명확한 색상과 패턴)
+        for (let i = 0; i < 3; i++) {
+            const baseColor = 0x001122 + i * 0x001122;
+            // 배경을 여러 개 생성하여 무한 스크롤 효과
+            const rect1 = this.add.rectangle(400, 300, 800, 600, baseColor);
+            const rect2 = this.add.rectangle(400, -300, 800, 600, baseColor);
+            rect1.setDepth(0); // 배경은 가장 뒤
+            rect2.setDepth(0);
+            
+            // 배경에 별 패턴 추가 (시각적 효과로 스크롤 확인 가능)
+            const graphics = this.add.graphics();
+            graphics.fillStyle(0xffffff, 0.5 - i * 0.1);
+            for (let j = 0; j < 30; j++) {
+                const starX = Phaser.Math.Between(0, 800);
+                const starY = Phaser.Math.Between(0, 1800); // 더 긴 범위
+                graphics.fillCircle(starX, starY, 1 + i);
+            }
+            graphics.setDepth(1); // 별은 배경 위
+            
+            this.bgLayers.push({ 
+                rect1: rect1, 
+                rect2: rect2,
+                graphics: graphics,
+                speed: (i + 1) * 3  // 스크롤 속도 증가 (더 빠르게)
+            });
+        }
+    }
+
+    createPlayer() {
+        // 플레이어 비행기 생성 (더 크고 밝게)
+        const graphics = this.add.graphics();
+        
+        // 밝은 초록색으로 변경
+        graphics.fillStyle(0x00ff00, 1);
+        graphics.lineStyle(4, 0xffffff, 1); // 흰색 두꺼운 테두리
+        
+        // 비행기 모양 그리기 (위를 향한 삼각형, 더 크게)
+        graphics.beginPath();
+        graphics.moveTo(0, -25);  // 위쪽 꼭짓점
+        graphics.lineTo(-18, 18);  // 왼쪽 아래
+        graphics.lineTo(-6, 12);   // 왼쪽 날개 안쪽
+        graphics.lineTo(6, 12);    // 오른쪽 날개 안쪽
+        graphics.lineTo(18, 18);   // 오른쪽 아래
+        graphics.closePath();
+        graphics.fillPath();
+        graphics.strokePath();
+        
+        // 몸체 (밝게)
+        graphics.fillStyle(0xffffff, 1);
+        graphics.fillRect(-4, -6, 8, 18);
+        
+        // 발광 효과
+        graphics.lineStyle(2, 0x00ff00, 0.8);
+        graphics.strokePath();
+        
+        this.player = graphics;
+        this.physics.add.existing(this.player);
+        this.player.body.setCollideWorldBounds(true);
+        this.player.body.setSize(36, 43);
+        this.player.setPosition(400, 500);
+        this.player.setDepth(10);
+        this.player.setScale(1.2); // 더 크게
+
+        // 플레이어 중심점 표시 (피격 판정 - 작은 점, 디버그용)
+        this.hitbox = this.add.circle(this.player.x, this.player.y, 5, 0xff0000);
+        this.hitbox.setDepth(11);
+        this.hitbox.setAlpha(0.4); // 약간 더 보이게
+    }
+
+    setupInput() {
+        this.cursors = this.input.keyboard.createCursorKeys();
+        // Z 키 제거 (사격 기능 없음)
+        this.keyX = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.X);
+        this.keyShift = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
+    }
+
+    setupCollisions() {
+        // 플레이어 탄환과 적 충돌
+        this.physics.add.overlap(
+            this.playerBullets,
+            this.enemies,
+            this.hitEnemy,
+            null,
+            this
+        );
+
+        // 플레이어 탄환과 보스 충돌
+        this.physics.add.overlap(
+            this.playerBullets,
+            this.bosses,
+            this.hitBoss,
+            null,
+            this
+        );
+
+        // 적 탄환과 플레이어 충돌
+        this.physics.add.overlap(
+            this.enemyBullets,
+            this.player,
+            this.hitPlayer,
+            null,
+            this
+        );
+
+        // 적과 플레이어 충돌
+        this.physics.add.overlap(
+            this.enemies,
+            this.player,
+            this.hitPlayer,
+            null,
+            this
+        );
+
+        // 보스와 플레이어 충돌
+        this.physics.add.overlap(
+            this.bosses,
+            this.player,
+            this.hitPlayer,
+            null,
+            this
+        );
+
+        // 아이템과 플레이어 충돌
+        this.physics.add.overlap(
+            this.items,
+            this.player,
+            this.collectItem,
+            null,
+            this
+        );
+    }
+
+    createUI() {
+        // 스코어
+        this.scoreText = this.add.text(10, 10, 'SCORE: 0', {
+            fontSize: '20px',
+            fill: '#ffffff',
+            fontFamily: 'Courier New'
+        });
+
+        // 점수 기준 안내 (피하기 게임 - 생존 시간 기반)
+        this.add.text(10, 35, '생존 시간: +점수', {
+            fontSize: '12px',
+            fill: '#cccccc',
+            fontFamily: 'Courier New'
+        });
+
+        // 잔기 텍스트
+        this.livesText = this.add.text(10, 60, 'LIVES: 3', {
+            fontSize: '20px',
+            fill: '#00ff00',
+            fontFamily: 'Courier New'
+        });
+
+        // 잔기 게이지 바
+        this.livesBarBg = this.add.graphics();
+        this.livesBarBg.fillStyle(0x333333, 1);
+        this.livesBarBg.fillRect(10, 90, 200, 20);
+        
+        this.livesBar = this.add.graphics();
+        this.updateLivesBar();
+
+        // 폭탄
+        this.bombsText = this.add.text(10, 120, 'BOMBS: 3', {
+            fontSize: '20px',
+            fill: '#ff00ff',
+            fontFamily: 'Courier New'
+        });
+
+        // 파워 레벨
+        this.powerText = this.add.text(10, 150, 'POWER: 0', {
+            fontSize: '20px',
+            fill: '#ffff00',
+            fontFamily: 'Courier New'
+        });
+    }
+
+    updateLivesBar() {
+        this.livesBar.clear();
+        const maxLives = 3;
+        const livesPercent = Math.max(0, this.lives / maxLives);
+        
+        // 배경 (회색)
+        this.livesBar.fillStyle(0x666666, 1);
+        this.livesBar.fillRect(10, 90, 200, 20);
+        
+        // 잔기 (초록색)
+        this.livesBar.fillStyle(0x00ff00, 1);
+        this.livesBar.fillRect(10, 90, 200 * livesPercent, 20);
+        
+        // 테두리
+        this.livesBar.lineStyle(2, 0xffffff, 1);
+        this.livesBar.strokeRect(10, 90, 200, 20);
+    }
+
+    update(time, delta) {
+        if (this.gameOver) return;
+
+        this.stageTime += delta;
+
+        // 배경 스크롤
+        this.updateBackground(delta);
+
+        // 플레이어 이동
+        this.updatePlayerMovement(delta);
+
+        // 사격 기능 제거 (피하기 게임)
+
+        // 폭탄
+        this.updateBomb(time);
+
+        // 적 스폰
+        this.updateEnemySpawn(time);
+
+        // 보스 스폰
+        this.updateBossSpawn(time);
+
+        // 옵션 업데이트
+        this.updateOptions();
+        
+        // 적 비행기 위치 수동 업데이트 (물리 엔진이 제대로 작동하지 않을 경우 대비)
+        this.updateEnemyPositions(delta);
+        
+        // 탄환 관련 기능 제거 (피하기 게임)
+        
+        // 적 비행기와 플레이어 수동 충돌 판정만 유지
+        this.checkEnemyPlayerCollisions();
+
+        // 보스 체력 바 업데이트
+        this.updateBossHealthBars();
+
+        // 아이템이 화면 밖으로 나가면 제거
+        this.cleanupItems();
+
+        // 히트박스 업데이트 (플레이어 중심점)
+        if (this.hitbox) {
+            this.hitbox.setPosition(this.player.x, this.player.y);
+        }
+
+        // 무적 시간 감소
+        if (this.isInvincible) {
+            this.player.setAlpha(0.5);
+            this.invincibleTimer -= delta;
+            if (this.invincibleTimer <= 0) {
+                this.isInvincible = false;
+                this.player.setAlpha(1);
+            }
+        }
+
+        // 폭탄 쿨다운
+        if (this.bombCooldown > 0) {
+            this.bombCooldown -= delta;
+        }
+    }
+
+    updateBackground(delta) {
+        // 배경 레이어 스크롤 (종스크롤 효과 - 위에서 아래로)
+        this.bgLayers.forEach(layer => {
+            const speed = layer.speed * (delta / 16);
+            
+            // 모든 배경 레이어를 아래로 이동
+            layer.rect1.y += speed;
+            layer.rect2.y += speed;
+            if (layer.graphics) {
+                layer.graphics.y += speed;
+            }
+            
+            // 배경이 화면 밖으로 나가면 위로 재배치 (무한 스크롤)
+            if (layer.rect1.y >= 900) {
+                layer.rect1.y = layer.rect2.y - 600;
+            }
+            if (layer.rect2.y >= 900) {
+                layer.rect2.y = layer.rect1.y - 600;
+            }
+            if (layer.graphics && layer.graphics.y >= 900) {
+                layer.graphics.y = -300;
+            }
+        });
+    }
+
+    updatePlayerMovement(delta) {
+        const speed = this.isSlowMode ? 100 : 300;
+        let moveX = 0;
+        let moveY = 0;
+
+        if (this.cursors.left.isDown) {
+            moveX = -speed;
+        } else if (this.cursors.right.isDown) {
+            moveX = speed;
+        }
+
+        if (this.cursors.up.isDown) {
+            moveY = -speed;
+        } else if (this.cursors.down.isDown) {
+            moveY = speed;
+        }
+
+        // 저속 모드
+        this.isSlowMode = this.keyShift.isDown;
+
+        // 대각선 이동 정규화
+        if (moveX !== 0 && moveY !== 0) {
+            moveX *= 0.707;
+            moveY *= 0.707;
+        }
+
+        this.player.body.setVelocity(moveX, moveY);
+    }
+
+    // 사격 기능 제거 (피하기 게임)
+
+    updateBomb(time) {
+        if (this.keyX.isDown && this.bombs > 0 && this.bombCooldown <= 0) {
+            this.useBomb();
+        }
+    }
+
+    useBomb() {
+        this.bombs--;
+        this.bombsText.setText(`BOMBS: ${this.bombs}`);
+        this.bombCooldown = 500; // 0.5초 쿨다운
+
+        // 무적 시간 부여
+        this.isInvincible = true;
+        this.invincibleTimer = 2000;
+
+        // 화면 전체 폭발 효과
+        for (let i = 0; i < 50; i++) {
+            const x = Phaser.Math.Between(0, 800);
+            const y = Phaser.Math.Between(0, 600);
+            this.createExplosion(x, y);
+        }
+
+        // 모든 적 탄환 제거
+        this.enemyBullets.children.entries.forEach(bullet => {
+            if (bullet.active) {
+                bullet.destroy();
+            }
+        });
+
+        // 모든 적에게 대미지
+        this.enemies.children.entries.forEach(enemy => {
+            if (enemy.active) {
+                enemy.health -= 10;
+                if (enemy.health <= 0) {
+                    this.score += 100;
+                    this.scoreText.setText(`SCORE: ${this.score}`);
+                    this.createExplosion(enemy.x, enemy.y);
+                    enemy.destroy();
+                }
+            }
+        });
+
+        // 보스에게 대미지
+        this.bosses.children.entries.forEach(boss => {
+            if (boss.active) {
+                boss.health -= 50;
+                if (boss.health <= 0) {
+                    this.score += 1000;
+                    this.scoreText.setText(`SCORE: ${this.score}`);
+                    this.createExplosion(boss.x, boss.y);
+                    if (boss.isBoss && boss.phase === 1) {
+                        // 2단계로 변신
+                        this.transformBoss(boss);
+                    } else {
+                        boss.destroy();
+                        this.bossActive = false;
+                        this.midBossActive = false;
+                    }
+                }
+            }
+        });
+    }
+
+    // 사격 기능 제거 (피하기 게임)
+
+    updateEnemySpawn(time) {
+        // 보스전 중에도 일반 적 스폰 계속 (게임이 멈추지 않도록)
+        // if (this.bossActive || this.midBossActive) return; // 보스전 중에는 일반 적 스폰 중지
+        
+        if (time > this.enemySpawnTimer) {
+            this.enemySpawnTimer = time + this.enemySpawnInterval;
+            this.spawnEnemy();
+        }
+    }
+
+    updateBossSpawn(time) {
+        // 보스 스폰 비활성화 (게임이 끊기지 않도록)
+        // 원하면 나중에 다시 활성화 가능
+        /*
+        // 30초마다 중간 보스
+        if (!this.midBossActive && !this.bossActive && this.stageTime > 30000 && this.stageTime % 30000 < 1000) {
+            this.spawnMidBoss();
+        }
+
+        // 60초마다 메인 보스
+        if (!this.bossActive && this.stageTime > 60000 && this.stageTime % 60000 < 1000) {
+            this.spawnMainBoss();
+        }
+        */
+    }
+
+    spawnEnemy() {
+        const x = Phaser.Math.Between(50, 750);
+        const enemyType = Phaser.Math.Between(1, 3); // 다양한 적 타입
+        
+        // 적 비행기 생성 (아래를 향한 삼각형)
+        const graphics = this.add.graphics();
+        
+        // 적 타입에 따라 색상과 크기 변경 (더 밝고 크게)
+        let color, darkColor, size;
+        if (enemyType === 1) {
+            color = 0xff5555;      // 매우 밝은 빨간 적
+            darkColor = 0xff0000;
+            size = 1.3; // 더 크게
+        } else if (enemyType === 2) {
+            color = 0xffaa55;      // 매우 밝은 주황 적
+            darkColor = 0xff6600;
+            size = 1.5; // 더 크게
+        } else {
+            color = 0xff55ff;      // 매우 밝은 보라 적
+            darkColor = 0xff00ff;
+            size = 1.1; // 더 크게
+        }
+        
+        // 매우 밝고 명확한 색상으로 변경
+        graphics.fillStyle(color, 1);
+        graphics.lineStyle(4, 0xffffff, 1); // 두꺼운 흰색 테두리
+        
+        // 적 비행기 모양 그리기 (더 크게)
+        graphics.beginPath();
+        graphics.moveTo(0, 25 * size);   // 아래쪽 꼭짓점
+        graphics.lineTo(-15 * size, -12 * size); // 왼쪽 위
+        graphics.lineTo(-5 * size, -6 * size);   // 왼쪽 날개 안쪽
+        graphics.lineTo(5 * size, -6 * size);    // 오른쪽 날개 안쪽
+        graphics.lineTo(15 * size, -12 * size);  // 오른쪽 위
+        graphics.closePath();
+        graphics.fillPath();
+        graphics.strokePath();
+        
+        // 몸체 (밝은 흰색)
+        graphics.fillStyle(0xffffff, 1);
+        graphics.fillRect(-3 * size, -10 * size, 6 * size, 15 * size);
+        
+        // 발광 효과 (더 잘 보이도록)
+        graphics.lineStyle(2, color, 0.8);
+        graphics.strokePath();
+        
+        const enemy = graphics;
+        this.physics.add.existing(enemy);
+        
+        // 물리 엔진 활성화 확인
+        if (!enemy.body) {
+            console.error('적 비행기 물리 엔진 오류');
+            return;
+        }
+        
+        // 아래로 내려오는 속도 (양수 = 아래로)
+        const speedY = Phaser.Math.Between(150, 250); // 더 빠르게
+        const speedX = Phaser.Math.Between(-100, 100);
+        
+        // 속도 설정
+        enemy.body.setVelocityY(speedY);
+        enemy.body.setVelocityX(speedX);
+        enemy.body.setSize(30 * size, 37 * size);
+        enemy.body.setCollideWorldBounds(false); // 화면 밖으로 나가도 계속 이동
+        
+        // 초기 위치 설정
+        enemy.x = x;
+        enemy.y = -30;
+        enemy.setDepth(5); // 배경보다 앞에 표시
+        enemy.setScale(1.2); // 더 크게 표시
+        enemy.health = enemyType; // 타입에 따라 체력 다름
+        enemy.enemyType = enemyType;
+        
+        // 속도를 저장하여 수동 업데이트 가능하도록
+        enemy.speedY = speedY;
+        enemy.speedX = speedX;
+        
+        this.enemies.add(enemy);
+        
+        // 디버깅: 적이 제대로 생성되었는지 확인
+        console.log('적 비행기 생성:', x, '속도:', speedY);
+
+        // 적 미사일 발사 기능 제거 (피하기 게임)
+    }
+
+    // 적 미사일 발사 기능 제거 (피하기 게임)
+
+    updateOptions() {
+        // 옵션 위치 업데이트
+        this.options.forEach((option, index) => {
+            const angle = (index * 2 * Math.PI / this.options.length) + (this.time.now * 0.001);
+            const radius = 40;
+            option.setPosition(
+                this.player.x + Math.cos(angle) * radius,
+                this.player.y + Math.sin(angle) * radius
+            );
+        });
+    }
+
+    updateBossHealthBars() {
+        // 모든 보스의 체력 바 업데이트
+        this.bosses.children.entries.forEach(boss => {
+            if (boss.active && boss.healthBar) {
+                boss.healthBar.clear();
+                const barWidth = boss.isBoss ? 200 : 150;
+                const healthPercent = Math.max(0, boss.health / boss.maxHealth);
+                
+                // 배경 (빨간색)
+                boss.healthBar.fillStyle(0xff0000, 1);
+                boss.healthBar.fillRect(boss.x - barWidth / 2, boss.y - 60, barWidth, 10);
+                
+                // 체력 (초록색)
+                boss.healthBar.fillStyle(0x00ff00, 1);
+                boss.healthBar.fillRect(boss.x - barWidth / 2, boss.y - 60, barWidth * healthPercent, 10);
+            }
+        });
+    }
+
+    cleanupItems() {
+        // 아이템이 화면 밖으로 나가면 제거
+        this.items.children.entries.forEach(item => {
+            if (item.active && item.y > 650) {
+                item.destroy();
+            }
+        });
+    }
+
+    cleanupEnemies() {
+        // 적이 화면 밖으로 나가면 제거 (단, 체력이 0이 아닌 경우만 - 죽은 적은 이미 파괴됨)
+        this.enemies.children.entries.forEach(enemy => {
+            if (enemy.active && enemy.y > 650 && enemy.health > 0) {
+                enemy.destroy();
+            }
+        });
+    }
+
+    updateEnemyPositions(delta) {
+        // 적 비행기 위치를 수동으로 업데이트 (물리 엔진이 제대로 작동하지 않을 경우)
+        this.enemies.children.entries.forEach(enemy => {
+            if (enemy.active && enemy.speedY) {
+                // 수동으로 위치 업데이트
+                enemy.y += enemy.speedY * (delta / 1000);
+                enemy.x += (enemy.speedX || 0) * (delta / 1000);
+                
+                // 물리 엔진 위치도 동기화
+                if (enemy.body) {
+                    enemy.body.x = enemy.x;
+                    enemy.body.y = enemy.y;
+                }
+            }
+        });
+    }
+
+    updateBulletPositions(delta) {
+        // 플레이어 탄환 위치를 수동으로 업데이트
+        this.playerBullets.children.entries.forEach(bullet => {
+            if (!bullet || !bullet.active) return;
+            
+            if (bullet.speedY !== undefined) {
+                // 수동으로 위치 업데이트
+                bullet.y += bullet.speedY * (delta / 1000);
+                bullet.x += (bullet.speedX || 0) * (delta / 1000);
+                
+                // 물리 엔진 위치도 동기화
+                if (bullet.body) {
+                    bullet.body.x = bullet.x;
+                    bullet.body.y = bullet.y;
+                }
+                
+                // 화면 밖으로 나가면 제거
+                if (bullet.y < -50 || bullet.y > 650 || bullet.x < -50 || bullet.x > 850) {
+                    bullet.destroy();
+                }
+            }
+        });
+    }
+
+    updateEnemyBulletPositions(delta) {
+        // 적 탄환 위치를 수동으로 업데이트
+        this.enemyBullets.children.entries.forEach(bullet => {
+            if (!bullet || !bullet.active) return;
+            
+            if (bullet.speedY !== undefined || bullet.speedX !== undefined) {
+                // 수동으로 위치 업데이트
+                bullet.y += (bullet.speedY || 0) * (delta / 1000);
+                bullet.x += (bullet.speedX || 0) * (delta / 1000);
+                
+                // 물리 엔진 위치도 동기화
+                if (bullet.body) {
+                    bullet.body.x = bullet.x;
+                    bullet.body.y = bullet.y;
+                }
+                
+                // 화면 밖으로 나가면 제거
+                if (bullet.y < -50 || bullet.y > 650 || bullet.x < -50 || bullet.x > 850) {
+                    bullet.destroy();
+                }
+            }
+        });
+    }
+
+    checkBulletEnemyCollisions() {
+        // 플레이어 탄환과 적 비행기 수동 충돌 판정
+        this.playerBullets.children.entries.forEach(bullet => {
+            if (!bullet || !bullet.active) return;
+            
+            // 탄환이 이미 파괴되었는지 확인
+            if (bullet.destroyed) return;
+            
+            this.enemies.children.entries.forEach(enemy => {
+                if (!enemy || !enemy.active) return;
+                
+                // 적이 이미 파괴되었는지 확인
+                if (enemy.destroyed || enemy.health <= 0) return;
+                
+                // 두 점 사이의 거리 계산
+                const dx = bullet.x - enemy.x;
+                const dy = bullet.y - enemy.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                // 충돌 판정 (탄환 반지름 + 적 반지름)
+                const bulletRadius = bullet.radius || 5;
+                const enemyRadius = 20; // 적 비행기 크기의 반
+                
+                if (distance < bulletRadius + enemyRadius) {
+                    // 충돌 발생
+                    this.hitEnemy(bullet, enemy);
+                    // 탄환을 파괴했으므로 이 탄환은 더 이상 충돌 체크하지 않음
+                    bullet.destroyed = true;
+                    return; // 이 적에 대한 루프 종료
+                }
+            });
+        });
+    }
+
+    checkEnemyBulletPlayerCollisions() {
+        // 적 탄환과 플레이어 수동 충돌 판정
+        if (this.isInvincible || this.gameOver) return;
+        
+        this.enemyBullets.children.entries.forEach(bullet => {
+            if (!bullet || !bullet.active) return;
+            
+            // 두 점 사이의 거리 계산
+            const dx = bullet.x - this.player.x;
+            const dy = bullet.y - this.player.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // 충돌 판정 (탄환 반지름 + 플레이어 히트박스)
+            const bulletRadius = bullet.radius || 5;
+            const playerRadius = 4; // 플레이어 히트박스 크기
+            
+            if (distance < bulletRadius + playerRadius) {
+                // 충돌 발생
+                this.hitPlayer(this.player, bullet);
+            }
+        });
+    }
+
+    checkEnemyPlayerCollisions() {
+        // 적 비행기와 플레이어 수동 충돌 판정
+        if (this.isInvincible || this.gameOver) return;
+        
+        this.enemies.children.entries.forEach(enemy => {
+            if (!enemy || !enemy.active) return;
+            if (enemy.health <= 0) return; // 이미 죽은 적은 충돌하지 않음
+            
+            // 두 점 사이의 거리 계산
+            const dx = enemy.x - this.player.x;
+            const dy = enemy.y - this.player.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // 충돌 판정 (적 반지름 + 플레이어 히트박스)
+            const enemyRadius = 20;
+            const playerRadius = 4; // 플레이어 히트박스 크기
+            
+            if (distance < enemyRadius + playerRadius) {
+                // 충돌 발생
+                this.hitPlayer(this.player, enemy);
+            }
+        });
+    }
+
+    hitEnemy(bullet, enemy) {
+        // 이미 파괴된 탄환이나 적은 처리하지 않음
+        if (!bullet || !bullet.active || !enemy || !enemy.active) return;
+        if (enemy.health <= 0) return; // 이미 죽은 적은 처리하지 않음
+        
+        // 탄환 파괴
+        if (bullet.active) {
+            bullet.destroy();
+        }
+        
+        // 적 체력 감소
+        enemy.health--;
+        
+        if (enemy.health <= 0) {
+            // 점수 추가
+            this.score += 100;
+            this.scoreText.setText(`SCORE: ${this.score}`);
+
+            // 아이템 드랍 (확률)
+            if (Phaser.Math.Between(1, 100) <= 30) {
+                this.dropItem(enemy.x, enemy.y);
+            }
+
+            // 파티클 효과
+            this.createExplosion(enemy.x, enemy.y);
+            
+            // 적 파괴
+            if (enemy.active) {
+                enemy.destroy();
+            }
+        }
+    }
+
+    hitBoss(bullet, boss) {
+        bullet.destroy();
+        boss.health--;
+        
+        if (boss.health <= 0) {
+            if (boss.isBoss && boss.phase === 1) {
+                // 2단계로 변신
+                this.transformBoss(boss);
+            } else {
+                // 보스 파괴
+                this.score += 1000;
+                this.scoreText.setText(`SCORE: ${this.score}`);
+                this.createExplosion(boss.x, boss.y);
+                if (boss.healthBar) boss.healthBar.destroy();
+                boss.destroy();
+                this.bossActive = false;
+                this.midBossActive = false;
+            }
+        }
+    }
+
+    spawnMidBoss() {
+        this.midBossActive = true;
+        const boss = this.add.rectangle(400, 100, 150, 80, 0xff6600);
+        this.physics.add.existing(boss);
+        boss.body.setVelocityY(50);
+        boss.body.setVelocityX(100);
+        boss.body.setCollideWorldBounds(true);
+        boss.body.setBounce(1, 0);
+        boss.body.setMaxVelocity(100, 50);
+        boss.health = 50;
+        boss.maxHealth = 50;
+        boss.isBoss = false;
+        boss.phase = 1;
+        boss.shootTimer = 0;
+        boss.healthBar = this.add.graphics();
+        this.bosses.add(boss);
+
+        // 체력 바 초기화
+        boss.healthBar.fillStyle(0xff0000, 1);
+        boss.healthBar.fillRect(boss.x - 75, boss.y - 60, 150, 10);
+
+        // 보스가 화면 중앙에 도달하면 정지
+        this.time.delayedCall(1000, () => {
+            if (boss.active) {
+                boss.body.setVelocity(0, 0);
+                boss.y = 150;
+            }
+        });
+
+        // 보스 좌우 이동 패턴
+        this.time.addEvent({
+            delay: 3000,
+            callback: () => {
+                if (boss.active && boss.y === 150) {
+                    boss.body.setVelocityX(boss.body.velocity.x === 0 ? 100 : -boss.body.velocity.x);
+                }
+            },
+            loop: true
+        });
+
+        // 보스 공격 패턴
+        this.startBossAttack(boss);
+    }
+
+    spawnMainBoss() {
+        this.bossActive = true;
+        const boss = this.add.rectangle(400, -100, 200, 120, 0xff0000);
+        this.physics.add.existing(boss);
+        boss.body.setVelocityY(50);
+        boss.body.setCollideWorldBounds(true);
+        boss.body.setImmovable(true);
+        boss.health = 200;
+        boss.maxHealth = 200;
+        boss.isBoss = true;
+        boss.phase = 1;
+        boss.shootTimer = 0;
+        boss.healthBar = this.add.graphics();
+        this.bosses.add(boss);
+
+        // 체력 바 초기화
+        boss.healthBar.fillStyle(0xff0000, 1);
+        boss.healthBar.fillRect(boss.x - 100, boss.y - 60, 200, 10);
+
+        // 보스가 화면 상단에 도달하면 정지
+        this.time.delayedCall(2000, () => {
+            if (boss.active) {
+                boss.body.setVelocity(0, 0);
+                boss.y = 100;
+            }
+        });
+
+        // 보스 공격 패턴
+        this.startBossAttack(boss);
+    }
+
+    transformBoss(boss) {
+        // 2단계 변신
+        boss.phase = 2;
+        boss.health = 100;
+        boss.maxHealth = 100;
+        boss.setFillStyle(0xff00ff);
+        boss.setSize(150, 100);
+        
+        // 체력 바 업데이트
+        if (boss.healthBar) {
+            boss.healthBar.clear();
+            boss.healthBar.fillStyle(0xff0000, 1);
+            boss.healthBar.fillRect(boss.x - 75, boss.y - 60, 150, 10);
+            boss.healthBar.fillStyle(0x00ff00, 1);
+            boss.healthBar.fillRect(boss.x - 75, boss.y - 60, 150, 10);
+        }
+        
+        // 로봇 형태로 변신 (색상 변경으로 표현)
+        this.createExplosion(boss.x, boss.y);
+        
+        // 더 강한 공격 패턴으로 변경
+        this.startBossAttack(boss);
+    }
+
+    startBossAttack(boss) {
+        if (!boss.active) return;
+
+        // 탄막 패턴
+        const pattern = () => {
+            if (!boss.active) return;
+
+            // 원형 탄막
+            const bulletCount = boss.phase === 2 ? 12 : 8;
+            for (let i = 0; i < bulletCount; i++) {
+                const angle = (i * Math.PI * 2) / bulletCount;
+                const bullet = this.add.circle(boss.x, boss.y + 40, 6, 0xff00ff);
+                this.physics.add.existing(bullet);
+                bullet.body.setVelocity(Math.cos(angle) * 150, Math.sin(angle) * 150);
+                bullet.body.setCollideWorldBounds(true);
+                bullet.body.onWorldBounds = true;
+                this.enemyBullets.add(bullet);
+            }
+
+            // 플레이어를 향한 탄환
+            const angle = Phaser.Math.Angle.Between(boss.x, boss.y, this.player.x, this.player.y);
+            const bullet = this.add.circle(boss.x, boss.y + 40, 8, 0xff0000);
+            this.physics.add.existing(bullet);
+            bullet.body.setVelocity(Math.cos(angle) * 200, Math.sin(angle) * 200);
+            bullet.body.setCollideWorldBounds(true);
+            bullet.body.onWorldBounds = true;
+            this.enemyBullets.add(bullet);
+
+            // 다음 공격
+            const delay = boss.phase === 2 ? 800 : 1000;
+            this.time.delayedCall(delay, pattern);
+        };
+
+        this.time.delayedCall(2000, pattern);
+    }
+
+    hitPlayer(player, object) {
+        // 무적 상태이거나 게임 오버 상태면 처리하지 않음
+        if (this.isInvincible || this.gameOver) return;
+        
+        // 이미 파괴된 객체는 처리하지 않음
+        if (!object || !object.active) return;
+
+        // 잔기 감소
+        this.lives--;
+        this.livesText.setText(`LIVES: ${this.lives}`);
+        this.updateLivesBar(); // 잔기 게이지 업데이트
+
+        // 잔기가 0 이하가 되면 게임 오버
+        if (this.lives < 0) {
+            this.lives = 0; // 음수 방지
+        }
+        
+        if (this.lives <= 0) {
+            this.gameOver = true;
+            this.showGameOver();
+        } else {
+            // 무적 시간 부여 (잔기가 남아있을 때만)
+            this.isInvincible = true;
+            this.invincibleTimer = 2000;
+            this.createExplosion(player.x, player.y);
+        }
+
+        // 충돌한 객체 파괴 (플레이어가 아닌 경우)
+        if (object !== this.player && object.active) {
+            object.destroy();
+        }
+    }
+
+    dropItem(x, y) {
+        const itemType = Phaser.Math.Between(1, 3);
+        let color = 0xffff00; // Power Up
+        if (itemType === 2) color = 0xff00ff; // Bomb
+        if (itemType === 3) color = 0x00ffff; // Full Power
+
+        const item = this.add.circle(x, y, 10, color);
+        this.physics.add.existing(item);
+        item.body.setVelocityY(100);
+        item.itemType = itemType;
+        this.items.add(item);
+    }
+
+    collectItem(player, item) {
+        if (item.itemType === 1) {
+            // Power Up
+            this.powerLevel = Math.min(this.powerLevel + 1, 3);
+            this.powerText.setText(`POWER: ${this.powerLevel}`);
+        } else if (item.itemType === 2) {
+            // Bomb
+            this.bombs++;
+            this.bombsText.setText(`BOMBS: ${this.bombs}`);
+        } else if (item.itemType === 3) {
+            // Full Power
+            this.powerLevel = 3;
+            this.powerText.setText(`POWER: ${this.powerLevel}`);
+            // 옵션 추가 (비행기 모양)
+            if (this.options.length < 2) {
+                const optionGraphics = this.add.graphics();
+                optionGraphics.fillStyle(0x00ff00, 1);
+                optionGraphics.lineStyle(1, 0x00cc00, 1);
+                
+                // 작은 비행기 모양
+                optionGraphics.beginPath();
+                optionGraphics.moveTo(0, -8);
+                optionGraphics.lineTo(-6, 6);
+                optionGraphics.lineTo(-2, 4);
+                optionGraphics.lineTo(2, 4);
+                optionGraphics.lineTo(6, 6);
+                optionGraphics.closePath();
+                optionGraphics.fillPath();
+                optionGraphics.strokePath();
+                
+                optionGraphics.setScale(0.6);
+                this.options.push(optionGraphics);
+            }
+        }
+        item.destroy();
+    }
+
+    createExplosion(x, y) {
+        // 간단한 폭발 효과
+        for (let i = 0; i < 8; i++) {
+            const particle = this.add.circle(x, y, 3, 0xffff00);
+            const angle = (i * Math.PI * 2) / 8;
+            const speed = Phaser.Math.Between(50, 150);
+            this.tweens.add({
+                targets: particle,
+                x: x + Math.cos(angle) * speed,
+                y: y + Math.sin(angle) * speed,
+                alpha: 0,
+                duration: 500,
+                onComplete: () => particle.destroy()
+            });
+        }
+    }
+
+    showGameOver() {
+        // 하이스코어 저장
+        const highScore = parseInt(localStorage.getItem('highScore') || 0);
+        if (this.score > highScore) {
+            localStorage.setItem('highScore', this.score);
+        }
+
+        // 게임 오버 텍스트
+        const gameOverText = this.add.text(400, 250, 'GAME OVER', {
+            fontSize: '48px',
+            fill: '#ff0000',
+            fontFamily: 'Courier New'
+        }).setOrigin(0.5);
+
+        const scoreText = this.add.text(400, 320, `FINAL SCORE: ${this.score}`, {
+            fontSize: '32px',
+            fill: '#ffffff',
+            fontFamily: 'Courier New'
+        }).setOrigin(0.5);
+
+        const restartText = this.add.text(400, 400, 'PRESS Z TO RESTART', {
+            fontSize: '24px',
+            fill: '#00ff00',
+            fontFamily: 'Courier New'
+        }).setOrigin(0.5);
+
+        this.input.keyboard.once('keydown-Z', () => {
+            this.scene.restart();
+        });
+    }
+}
+
+// 게임 설정 및 초기화 (클래스 정의 후)
+const config = {
+    type: Phaser.AUTO,
+    width: 800,
+    height: 600,
+    parent: 'game-container',
+    backgroundColor: '#000011',
+    physics: {
+        default: 'arcade',
+        arcade: {
+            gravity: { y: 0 },
+            debug: false
+        }
+    },
+    scene: [MainMenu, GameScene]
+};
+
+const game = new Phaser.Game(config);

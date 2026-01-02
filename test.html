@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Test - Retro Strike 1945</title>
+</head>
+<body>
+    <h1>게임 테스트</h1>
+    <p>브라우저 콘솔(F12)을 열어서 오류를 확인하세요.</p>
+    <div id="game-container"></div>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
+    <script>
+        // Phaser 로드 확인
+        if (typeof Phaser === 'undefined') {
+            console.error('Phaser.js가 로드되지 않았습니다!');
+        } else {
+            console.log('Phaser.js 로드 성공:', Phaser.VERSION);
+        }
+    </script>
+    <script src="js/main.js"></script>
+    <script>
+        // 게임 초기화 확인
+        if (typeof game === 'undefined') {
+            console.error('게임이 초기화되지 않았습니다!');
+        } else {
+            console.log('게임 초기화 성공');
+        }
+    </script>
+</body>
+</html>
