@@ -472,7 +472,7 @@ class GameScene extends Phaser.Scene {
     }
 
     spawnEnemy() {
-        // 사방에서 랜덤하게 적 스폰
+        // 사방에서 랜덤하게 적 스폰 (더 랜덤하게)
         // 0: 위, 1: 아래, 2: 왼쪽, 3: 오른쪽
         const side = Phaser.Math.Between(0, 3);
         let x, y, speedX, speedY;
@@ -482,36 +482,67 @@ class GameScene extends Phaser.Scene {
         const color = 0xffff00; // 노란색
         const speed = 300; // 일정한 속도
         
+        // 랜덤성 추가: 70%는 플레이어를 향해, 30%는 랜덤 방향
+        const isRandomDirection = Math.random() < 0.3;
+        
         // 스폰 위치와 방향 설정
         if (side === 0) {
             // 위에서
-            x = Phaser.Math.Between(50, 750);
+            x = Phaser.Math.Between(0, 800); // 화면 전체 너비에서 랜덤
             y = -30;
-            // 플레이어를 향해 이동
-            const angle = Phaser.Math.Angle.Between(x, y, this.player.x, this.player.y);
-            speedX = Math.cos(angle) * speed;
-            speedY = Math.sin(angle) * speed;
+            if (isRandomDirection) {
+                // 랜덤 방향 (아래쪽으로 약간 치우침)
+                const randomAngle = Phaser.Math.Between(-Math.PI / 3, Math.PI / 3) + Math.PI / 2;
+                speedX = Math.cos(randomAngle) * speed;
+                speedY = Math.sin(randomAngle) * speed;
+            } else {
+                // 플레이어를 향해 이동
+                const angle = Phaser.Math.Angle.Between(x, y, this.player.x, this.player.y);
+                speedX = Math.cos(angle) * speed;
+                speedY = Math.sin(angle) * speed;
+            }
         } else if (side === 1) {
             // 아래에서
-            x = Phaser.Math.Between(50, 750);
+            x = Phaser.Math.Between(0, 800);
             y = 630;
-            const angle = Phaser.Math.Angle.Between(x, y, this.player.x, this.player.y);
-            speedX = Math.cos(angle) * speed;
-            speedY = Math.sin(angle) * speed;
+            if (isRandomDirection) {
+                // 랜덤 방향 (위쪽으로 약간 치우침)
+                const randomAngle = Phaser.Math.Between(-Math.PI / 3, Math.PI / 3) - Math.PI / 2;
+                speedX = Math.cos(randomAngle) * speed;
+                speedY = Math.sin(randomAngle) * speed;
+            } else {
+                const angle = Phaser.Math.Angle.Between(x, y, this.player.x, this.player.y);
+                speedX = Math.cos(angle) * speed;
+                speedY = Math.sin(angle) * speed;
+            }
         } else if (side === 2) {
             // 왼쪽에서
             x = -30;
-            y = Phaser.Math.Between(50, 550);
-            const angle = Phaser.Math.Angle.Between(x, y, this.player.x, this.player.y);
-            speedX = Math.cos(angle) * speed;
-            speedY = Math.sin(angle) * speed;
+            y = Phaser.Math.Between(0, 600); // 화면 전체 높이에서 랜덤
+            if (isRandomDirection) {
+                // 랜덤 방향 (오른쪽으로 약간 치우침)
+                const randomAngle = Phaser.Math.Between(-Math.PI / 3, Math.PI / 3);
+                speedX = Math.cos(randomAngle) * speed;
+                speedY = Math.sin(randomAngle) * speed;
+            } else {
+                const angle = Phaser.Math.Angle.Between(x, y, this.player.x, this.player.y);
+                speedX = Math.cos(angle) * speed;
+                speedY = Math.sin(angle) * speed;
+            }
         } else {
             // 오른쪽에서
             x = 830;
-            y = Phaser.Math.Between(50, 550);
-            const angle = Phaser.Math.Angle.Between(x, y, this.player.x, this.player.y);
-            speedX = Math.cos(angle) * speed;
-            speedY = Math.sin(angle) * speed;
+            y = Phaser.Math.Between(0, 600);
+            if (isRandomDirection) {
+                // 랜덤 방향 (왼쪽으로 약간 치우침)
+                const randomAngle = Phaser.Math.Between(-Math.PI / 3, Math.PI / 3) + Math.PI;
+                speedX = Math.cos(randomAngle) * speed;
+                speedY = Math.sin(randomAngle) * speed;
+            } else {
+                const angle = Phaser.Math.Angle.Between(x, y, this.player.x, this.player.y);
+                speedX = Math.cos(angle) * speed;
+                speedY = Math.sin(angle) * speed;
+            }
         }
         
         // 원형 적 생성
